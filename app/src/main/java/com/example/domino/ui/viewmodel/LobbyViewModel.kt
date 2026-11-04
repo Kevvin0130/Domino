@@ -1,73 +1,86 @@
-package com.example.domino.ui.viewmodel
+package com.example.domino.ui.screens
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.domino.data.auth.currentPlayerOrNull
-import com.example.domino.data.game.FirestoreGameRepository
-import com.example.domino.data.game.GameRepository
-import com.example.domino.domain.model.Player
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.example.domino.ui.components.DominoButton
+import com.example.domino.ui.viewmodel.LobbyViewModel
 
-data class LobbyUiState(
-    /** Set when a room was created/joined: navigate to the waiting room, then call [LobbyViewModel.roomHandled]. */
-    val roomCode: String? = null,
-    val loading: Boolean = false,
-    /** Message to show once; call [LobbyViewModel.clearError] afterwards. */
-    val error: String? = null
-)
+@Composable
+fun JoinGameScreen(
+    viewModel: LobbyViewModel,
+    onJoined: (String) -> Unit,
+    onBack: () -> Unit
+) {
+    var codeInput by remember { mutableStateOf("") }
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
 
-/**
- * Create / join a room (task A8). Person B wires it to the Create and Join screens (B5):
- * observe [uiState], navigate when [LobbyUiState.roomCode] is not null.
- */
-class LobbyViewModel(
-    private val repository: GameRepository = FirestoreGameRepository(),
-    private val currentPlayer: () -> Player? = { currentPlayerOrNull() }
-) : ViewModel() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Join Game Room",
+            style = MaterialTheme.typography.headlineMedium
+        )
 
-    private val _uiState = MutableStateFlow(LobbyUiState())
-    val uiState: StateFlow<LobbyUiState> = _uiState.asStateFlow()
+        Spacer(modifier = Modifier.height(24.dp))
 
-    fun createRoom() {
-        val host = currentPlayer() ?: return fail("You need to sign in first")
-        launchRequest { repository.createRoom(host) }
-    }
+        OutlinedTextField(
+            value = codeInput,
+            onValueChange = { codeInput = it.uppercase() },
+            label = { Text("Room Code") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
 
-    fun join(code: String) {
-        val player = currentPlayer() ?: return fail("You need to sign in first")
-        val clean = code.trim().uppercase()
-        if (clean.length != ROOM_CODE_LENGTH) return fail("The code has $ROOM_CODE_LENGTH characters")
-        launchRequest { repository.joinRoom(clean, player).map { clean } }
-    }
+        Spacer(modifier = Modifier.height(24.dp))
 
-    /** Call after navigating, so coming back to this screen does not navigate again. */
-    fun roomHandled() {
-        _uiState.update { it.copy(roomCode = null) }
-    }
-
-    fun clearError() {
-        _uiState.update { it.copy(error = null) }
-    }
-
-    private fun launchRequest(request: suspend () -> Result<String>) {
-        if (_uiState.value.loading) return
-        _uiState.update { it.copy(loading = true, error = null) }
-        viewModelScope.launch {
-            request()
-                .onSuccess { code -> _uiState.update { it.copy(loading = false, roomCode = code) } }
-                .onFailure { e -> _uiState.update { it.copy(loading = false, error = e.message ?: "Something went wrong") } }
+        if (isLoading) {
+            CircularProgressIndicator()
+        } else {
+            DominoButton(
+                text = "Join Room",
+                enabled = codeInput.isNotBlank(),
+                onClick = {
+                    viewModel.joinRoom(codeInput) { success ->
+                        if (success) onJoined(codeInput)
+                    }
+                }
+            )
         }
-    }
 
-    private fun fail(message: String) {
-        _uiState.update { it.copy(error = message) }
-    }
+        error?.let { err ->
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = err, color = MaterialTheme.colorScheme.error)
+        }
 
-    private companion object {
-        const val ROOM_CODE_LENGTH = 6
+        Spacer(modifier = Modifier.height(16.dp))
+
+        DominoButton(
+            text = "Back",
+            onClick = onBack
+        )
     }
 }
