@@ -26,7 +26,8 @@ import com.example.domino.ui.theme.VerdeProfundo
 @Composable
 fun CrearPartidaScreen(
     onVolver: () -> Unit,
-    onCrearPartida: () -> Unit
+    onCrearPartida: () -> Unit,
+    cargando: Boolean = false // B5: viene del LobbyViewModel
 ) {
     Column(
         modifier = Modifier
@@ -60,8 +61,9 @@ fun CrearPartidaScreen(
         Spacer(modifier = Modifier.height(36.dp))
 
         BotonDomino(
-            texto = "Crear sala",
+            texto = if (cargando) "Creando sala…" else "Crear sala",
             onClick = onCrearPartida,
+            enabled = !cargando,
             modifier = Modifier.fillMaxWidth(),
             altura = 68.dp
         )

@@ -1,4 +1,3 @@
-
 package com.example.domino.ui.screens
 
 import androidx.compose.foundation.background
@@ -8,7 +7,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,12 +30,17 @@ fun MenuPrincipalScreen(
     onJugar: () -> Unit,
     onCrearSala: () -> Unit,
     onUnirseSala: () -> Unit,
-    onComoJugar: () -> Unit
+    onComoJugar: () -> Unit,
+    onHistorial: () -> Unit = {},
+    onCerrarSesion: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(VerdeProfundo)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 28.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -58,7 +66,7 @@ fun MenuPrincipalScreen(
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(36.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         Text(
             text = "MENÚ PRINCIPAL",
@@ -66,38 +74,18 @@ fun MenuPrincipalScreen(
             color = MaterialTheme.colorScheme.onBackground
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            BotonDomino(
-                texto = "Jugar",
-                onClick = onJugar,
-                altura = 108.dp
-            )
-
-            BotonDomino(
-                texto = "Crear sala",
-                onClick = onCrearSala,
-                altura = 108.dp,
-                principal = false
-            )
-
-            BotonDomino(
-                texto = "Unirse a una sala",
-                onClick = onUnirseSala,
-                altura = 108.dp,
-                principal = false
-            )
-
-            BotonDomino(
-                texto = "Cómo jugar",
-                onClick = onComoJugar,
-                altura = 108.dp,
-                principal = false
-            )
+            BotonDomino(texto = "Jugar", onClick = onJugar, altura = 84.dp)
+            BotonDomino(texto = "Crear sala", onClick = onCrearSala, altura = 72.dp, principal = false)
+            BotonDomino(texto = "Unirse a una sala", onClick = onUnirseSala, altura = 72.dp, principal = false)
+            BotonDomino(texto = "Historial", onClick = onHistorial, altura = 72.dp, principal = false)
+            BotonDomino(texto = "Cómo jugar", onClick = onComoJugar, altura = 72.dp, principal = false)
+            BotonDomino(texto = "Cerrar sesión", onClick = onCerrarSesion, altura = 48.dp, principal = false)
         }
     }
 }

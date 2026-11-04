@@ -101,5 +101,14 @@ class AuthRepository {
         }
     }
 
+    /** B1: ¿hay una sesión guardada? Así la app abre directo en el menú. */
+    fun haySesion(): Boolean = auth.currentUser != null
 
+    /** B1: uid del usuario actual ("" si no hay sesión). Lo usan las pantallas de partida. */
+    fun usuarioId(): String = auth.currentUser?.uid ?: ""
+
+    /** B1: cierra la sesión de Firebase. */
+    fun cerrarSesion() {
+        auth.signOut()
+    }
 }

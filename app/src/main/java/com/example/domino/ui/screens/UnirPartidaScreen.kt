@@ -42,7 +42,8 @@ import com.example.domino.ui.theme.VerdeSuperficie
 @Composable
 fun UnirPartidaScreen(
     onVolver: () -> Unit,
-    onUnirse: (String) -> Unit
+    onUnirse: (String) -> Unit,
+    cargando: Boolean = false // B5: viene del LobbyViewModel
 ) {
     var codigo by remember { mutableStateOf("") }
 
@@ -84,7 +85,8 @@ fun UnirPartidaScreen(
         Spacer(modifier = Modifier.height(28.dp))
 
         BotonDomino(
-            texto = "Unirse a la partida",
+            texto = if (cargando) "Uniéndose…" else "Unirse a la partida",
+            enabled = !cargando && codigo.length == 6,
             onClick = {
                 if (codigo.length == 6) {
                     onUnirse(codigo)

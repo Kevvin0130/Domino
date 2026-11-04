@@ -1,4 +1,3 @@
-
 package com.example.domino.ui.components
 
 import androidx.compose.foundation.BorderStroke
@@ -17,7 +16,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.domino.ui.theme.Dorado
 import com.example.domino.ui.theme.VerdeEsmeralda
-import com.example.domino.ui.theme.VerdeProfundo
 
 @Composable
 fun BotonDomino(
@@ -25,11 +23,13 @@ fun BotonDomino(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     principal: Boolean = true,
-    altura: Dp = 48.dp
+    altura: Dp = 48.dp,
+    enabled: Boolean = true // B3: los controles de partida se deshabilitan cuando no aplican
 ) {
     if (principal) {
         Button(
             onClick = onClick,
+            enabled = enabled,
             modifier = modifier.fillMaxWidth().height(altura),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
@@ -45,9 +45,10 @@ fun BotonDomino(
     } else {
         OutlinedButton(
             onClick = onClick,
+            enabled = enabled,
             modifier = modifier.fillMaxWidth().height(altura),
             shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, Dorado),
+            border = BorderStroke(1.dp, if (enabled) Dorado else Dorado.copy(alpha = 0.3f)),
             colors = ButtonDefaults.outlinedButtonColors(
                 contentColor = Dorado
             )
