@@ -14,11 +14,12 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.domino.ui.screens.BienvenidaScreen
 import com.example.domino.ui.screens.ComoJugarScreen
-import com.example.domino.ui.screens.CrearPartidaScreen
+import com.example.domino.ui.screens.CreateGameScreen
+import com.example.domino.ui.screens.GameScreen
 import com.example.domino.ui.screens.HistorialScreen
 import com.example.domino.ui.screens.IniciarSesionScreen
+import com.example.domino.ui.screens.LobbyScreen
 import com.example.domino.ui.screens.MenuPrincipalScreen
-import com.example.domino.ui.screens.PartidaScreen
 import com.example.domino.ui.screens.RecuperarContrasenaScreen
 import com.example.domino.ui.screens.RegistroScreen
 import com.example.domino.ui.screens.UnirPartidaScreen
@@ -35,6 +36,9 @@ sealed class Screen(val route: String) {
     object MainMenu : Screen("main_menu")
     object CreateGame : Screen("create_game")
     object JoinGame : Screen("join_game")
+    object Lobby : Screen("lobby/{code}") {
+        fun createRoute(code: String) = "lobby/$code"
+    }
     object HowToPlay : Screen("how_to_play")
     object History : Screen("history")
     object Game : Screen("game/{code}") {
@@ -129,16 +133,14 @@ fun AppNavigation() {
         }
 
         composable(Screen.CreateGame.route) {
-            CrearPartidaScreen(
-                onVolver = { navController.popBackStack() },
-                onCrearPartida = {
-                    lobbyViewModel.createRoom { code ->
-                        navController.navigate(Screen.Game.createRoute(code)) {
-                            popUpTo(Screen.MainMenu.route)
-                        }
+            CreateGameScreen(
+                viewModel = lobbyViewModel,
+                onGameCreated = { code ->
+                    navController.navigate(Screen.Lobby.createRoute(code)) {
+                        popUpTo(Screen.MainMenu.route)
                     }
                 },
-                cargando = lobbyState.isLoading
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -148,13 +150,30 @@ fun AppNavigation() {
                 onUnirse = { code ->
                     lobbyViewModel.joinRoom(code) { ok ->
                         if (ok) {
-                            navController.navigate(Screen.Game.createRoute(code)) {
+                            navController.navigate(Screen.Lobby.createRoute(code)) {
                                 popUpTo(Screen.MainMenu.route)
                             }
                         }
                     }
                 },
                 cargando = lobbyState.isLoading
+            )
+        }
+
+        composable(
+            route = Screen.Lobby.route,
+            arguments = listOf(navArgument("code") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val code = backStackEntry.arguments?.getString("code").orEmpty()
+            LobbyScreen(
+                roomCode = code,
+                viewModel = lobbyViewModel,
+                onStartGame = {
+                    navController.navigate(Screen.Game.createRoute(code)) {
+                        popUpTo(Screen.MainMenu.route)
+                    }
+                },
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -191,14 +210,14 @@ fun AppNavigation() {
                 gameViewModel.connect(code, myId)
             }
 
-            PartidaScreen(
+            GameScreen(
                 ui = gameUiState,
                 onIniciar = { gameViewModel.startGame() },
                 onSeleccionarFicha = { gameViewModel.selectTile(it) },
                 onSeleccionarPoder = { gameViewModel.selectPower(it) },
                 onSeleccionarObjetivo = { id, tile -> gameViewModel.selectSwapTarget(id, tile) },
                 onConfirmarIntercambio = { gameViewModel.confirmSwap() },
-                onColocar = { gameViewModel.placeTile(it) },
+                onColocar = { side -> gameViewModel.placeTile(side) },
                 onRobar = { gameViewModel.drawFromPile() },
                 onAbandonar = { gameViewModel.abandon() },
                 onReiniciar = { gameViewModel.restart() },

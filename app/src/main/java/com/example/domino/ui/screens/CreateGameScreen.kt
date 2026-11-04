@@ -1,79 +1,87 @@
 
 package com.example.domino.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.domino.ui.components.BotonDomino
-import com.example.domino.ui.theme.Dorado
-import com.example.domino.ui.theme.Marfil
-import com.example.domino.ui.theme.TextoSecundario
-import com.example.domino.ui.theme.VerdeProfundo
+import com.example.domino.ui.components.DominoButton
+import com.example.domino.ui.viewmodel.LobbyViewModel
 
 @Composable
-fun CrearPartidaScreen(
-    onVolver: () -> Unit,
-    onCrearPartida: () -> Unit,
-    cargando: Boolean = false // B5: viene del LobbyViewModel
+fun CreateGameScreen(
+    viewModel: LobbyViewModel,
+    onGameCreated: (String) -> Unit,
+    onBack: () -> Unit
 ) {
+    val roomCode by viewModel.roomCode.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
+
+    // Detecta cuando Firestore genera el código y activa la navegación
+    LaunchedEffect(roomCode) {
+        roomCode?.let { code ->
+            if (code.isNotBlank()) {
+                onGameCreated(code)
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(VerdeProfundo)
-            .padding(horizontal = 28.dp, vertical = 24.dp),
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "CREAR",
-            style = MaterialTheme.typography.headlineLarge,
-            color = Dorado,
-            fontWeight = FontWeight.ExtraBold
+            text = "CREAR NUEVA PARTIDA",
+            style = MaterialTheme.typography.headlineMedium
         )
 
-        Text(
-            text = "NUEVA PARTIDA",
-            style = MaterialTheme.typography.headlineMedium,
-            color = Marfil
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = "Crea una sala e invita a tus amigos con su código.",
-            color = TextoSecundario,
-            textAlign = TextAlign.Center
+            style = MaterialTheme.typography.bodyMedium
         )
 
-        Spacer(modifier = Modifier.height(36.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
-        BotonDomino(
-            texto = if (cargando) "Creando sala…" else "Crear sala",
-            onClick = onCrearPartida,
-            enabled = !cargando,
-            modifier = Modifier.fillMaxWidth(),
-            altura = 68.dp
-        )
+        if (isLoading) {
+            CircularProgressIndicator()
+        } else {
+            DominoButton(
+                text = "Crear sala",
+                onClick = { viewModel.createRoom() }
+            )
+        }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        error?.let { err ->
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Error: $err",
+                color = MaterialTheme.colorScheme.error
+            )
+        }
 
-        BotonDomino(
-            texto = "Volver al menú",
-            onClick = onVolver,
-            modifier = Modifier.fillMaxWidth()
+        Spacer(modifier = Modifier.height(16.dp))
+
+        DominoButton(
+            text = "Volver al menú",
+            onClick = onBack
         )
     }
 }

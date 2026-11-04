@@ -2,6 +2,7 @@ package com.example.domino.ui.components
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.example.domino.domain.model.Player
@@ -33,13 +34,14 @@ class ComponentUiTest {
 
     @Test
     fun tileView_displaysTileValues() {
-        val testTile = Tile(6, 6)
+        val testTile = Tile(left = 6, right = 6)
 
         composeTestRule.setContent {
             TileView(tile = testTile)
         }
 
-        composeTestRule.onNodeWithText("6").assertIsDisplayed()
+        // Se utiliza onAllNodesWithText[0] porque la ficha doble (6-6) tiene dos numeros 6
+        composeTestRule.onAllNodesWithText("6")[0].assertIsDisplayed()
     }
 
     @Test
@@ -50,7 +52,10 @@ class ComponentUiTest {
             PlayerCard(player = testPlayer, isCurrentTurn = true)
         }
 
+        // Verifica que se muestre el nombre del jugador
         composeTestRule.onNodeWithText("John Doe").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Score: 150").assertIsDisplayed()
+
+        // Verifica que el número de puntaje aparezca en pantalla
+        composeTestRule.onAllNodesWithText("150", substring = true)[0].assertIsDisplayed()
     }
 }

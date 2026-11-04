@@ -6,6 +6,7 @@ import com.example.domino.data.auth.currentPlayerOrNull
 import com.example.domino.data.game.FirestoreGameRepository
 import com.example.domino.data.game.GameRepository
 import com.example.domino.domain.model.Player
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -15,7 +16,9 @@ import kotlinx.coroutines.launch
 data class LobbyUiState(
     val isLoading: Boolean = false,
     val roomCode: String? = null,
-    val error: String? = null
+    val error: String? = null,
+    val players: List<Player> = emptyList(),
+    val isHost: Boolean = false
 )
 
 class LobbyViewModel(
@@ -34,6 +37,29 @@ class LobbyViewModel(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private var observeJob: Job? = null
+
+    fun observeRoom(code: String) {
+        if (code.isBlank()) return
+        observeJob?.cancel()
+        val currentUserId = currentPlayerOrNull()?.id ?: ""
+        observeJob = viewModelScope.launch {
+            repository.observeGame(code).collect { gameState ->
+                if (gameState != null) {
+                    val hostId = gameState.hostId.ifEmpty { gameState.players.firstOrNull()?.id.orEmpty() }
+                    val isHost = currentUserId.isNotEmpty() && hostId == currentUserId
+                    _uiState.update {
+                        it.copy(
+                            players = gameState.players,
+                            isHost = isHost,
+                            roomCode = code
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     fun createRoom(onCreated: ((String) -> Unit)? = null) {
         val player = currentPlayerOrNull() ?: Player(id = "anon", name = "Jugador")
         viewModelScope.launch {
@@ -46,6 +72,7 @@ class LobbyViewModel(
                 _roomCode.value = code
                 _isLoading.value = false
                 _uiState.update { it.copy(isLoading = false, roomCode = code) }
+                observeRoom(code)
                 onCreated?.invoke(code)
             }.onFailure { ex ->
                 val msg = ex.localizedMessage ?: "No se pudo crear la sala"
@@ -68,6 +95,7 @@ class LobbyViewModel(
                 _roomCode.value = code
                 _isLoading.value = false
                 _uiState.update { it.copy(isLoading = false, roomCode = code) }
+                observeRoom(code)
                 onResult?.invoke(true)
             }.onFailure { ex ->
                 val msg = ex.localizedMessage ?: "No se pudo unirse a la sala"
@@ -80,6 +108,8 @@ class LobbyViewModel(
     }
 
     fun resetState() {
+        observeJob?.cancel()
+        observeJob = null
         _roomCode.value = null
         _isLoading.value = false
         _error.value = null

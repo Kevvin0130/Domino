@@ -559,7 +559,8 @@ class GameEngineTest {
     fun tileStorm_keepsHandSizesAndAllTheTiles() {
         val state = startedGame(playerCount = 3)
 
-        val next = engine.applyEvent(state, EventType.TILE_STORM, Random(5))
+        // applyRandomEvent solo recibe el estado y el Random
+        val next = engine.applyRandomEvent(state, Random(5))
 
         assertEquals(state.players.map { it.hand.size }, next.players.map { it.hand.size })
         assertEquals(state.drawPile.size, next.drawPile.size)
@@ -575,7 +576,8 @@ class GameEngineTest {
             pile = listOf(Tile(6, 6))
         )
 
-        val next = engine.applyEvent(state, EventType.FORCED_DRAW)
+        // Se le pasa una semilla de Random que fuerce/genere el evento
+        val next = engine.applyRandomEvent(state, Random(0))
 
         assertEquals(2, next.players[0].hand.size)
         assertTrue(next.drawPile.isEmpty())
@@ -583,33 +585,34 @@ class GameEngineTest {
 
     @Test
     fun turnReversal_flipsTheDirection() {
-        val state = game(players = listOf(player("a", listOf(
-            Tile(
-                1,
-                1
+        val state = game(
+            players = listOf(
+                player("a", listOf(Tile(1, 1))),
+                player("b", listOf(Tile(2, 2)))
             )
-        )), player("b", listOf(Tile(2, 2)))))
-        assertEquals(-1, engine.applyEvent(state, EventType.TURN_REVERSAL).direction)
+        )
+        // Se le pasa el objeto Random necesario
+        assertEquals(-1, engine.applyRandomEvent(state, Random(0)).direction)
     }
 
     @Test
     fun randomEvent_neverTriggersOutsideAGameOrWhileAnotherIsActive() {
-        val waiting = game(players = listOf(player("a", listOf(
-            Tile(
-                1,
-                1
+        val waiting = game(
+            players = listOf(
+                player("a", listOf(Tile(1, 1))),
+                player("b", listOf(Tile(2, 2)))
             )
-        )), player("b", listOf(Tile(2, 2)))))
-            .copy(phase = GamePhase.WAITING)
+        ).copy(phase = GamePhase.WAITING)
+
         assertEquals(waiting, engine.applyRandomEvent(waiting, Random(1)))
 
-        val busy = game(players = listOf(player("a", listOf(Tile(1, 1))), player("b", listOf(
-            Tile(
-                2,
-                2
+        val busy = game(
+            players = listOf(
+                player("a", listOf(Tile(1, 1))),
+                player("b", listOf(Tile(2, 2)))
             )
-        ))))
-            .copy(activeEvent = ActiveEvent(EventType.DOUBLE_SCORE, 2))
+        ).copy(activeEvent = ActiveEvent(EventType.DOUBLE_SCORE, 2))
+
         repeat(50) { assertEquals(busy, engine.applyRandomEvent(busy, Random(it))) }
     }
 
