@@ -5,273 +5,207 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.example.domino.domain.model.GamePhase
-import com.example.domino.ui.components.MensajeEffect
 import com.example.domino.ui.screens.BienvenidaScreen
 import com.example.domino.ui.screens.ComoJugarScreen
 import com.example.domino.ui.screens.CrearPartidaScreen
 import com.example.domino.ui.screens.HistorialScreen
 import com.example.domino.ui.screens.IniciarSesionScreen
 import com.example.domino.ui.screens.MenuPrincipalScreen
+import com.example.domino.ui.screens.PartidaScreen
 import com.example.domino.ui.screens.RecuperarContrasenaScreen
 import com.example.domino.ui.screens.RegistroScreen
-import com.example.domino.ui.screens.ResultadoScreen
-import com.example.domino.ui.screens.SalaEsperaScreen
-import com.example.domino.ui.screens.TableroScreen
 import com.example.domino.ui.screens.UnirPartidaScreen
 import com.example.domino.ui.viewmodel.AuthViewModel
 import com.example.domino.ui.viewmodel.GameViewModel
 import com.example.domino.ui.viewmodel.HistorialViewModel
 import com.example.domino.ui.viewmodel.LobbyViewModel
 
-private object Rutas {
-    const val BIENVENIDA = "bienvenida"
-    const val INICIAR_SESION = "iniciar_sesion"
-    const val REGISTRO = "registro"
-    const val RECUPERAR_CONTRASENA = "recuperar_contrasena"
-    const val MENU = "menu"
-    const val CREAR = "crear"
-    const val UNIRSE = "unirse"
-    const val COMOJUGAR = "comojugar"
-    const val HISTORIAL = "historial"
-
-    // Rutas con argumento: el código de la sala.
-    const val ARG_CODIGO = "codigo"
-    const val SALA_PATRON = "sala/{codigo}"
-    const val JUEGO_PATRON = "juego/{codigo}"
-    const val RESULTADO_PATRON = "resultado/{codigo}"
-
-    fun sala(codigo: String) = "sala/$codigo"
-    fun juego(codigo: String) = "juego/$codigo"
-    fun resultado(codigo: String) = "resultado/$codigo"
-}
-
-private val argumentoCodigo = listOf(navArgument(Rutas.ARG_CODIGO) { type = NavType.StringType })
-
-/** Borra toda la pila y deja [ruta] como única pantalla. */
-private fun NavHostController.irLimpiando(ruta: String) {
-    navigate(ruta) {
-        popUpTo(graph.id) { inclusive = true }
+sealed class Screen(val route: String) {
+    object Welcome : Screen("welcome")
+    object Login : Screen("login")
+    object Register : Screen("register")
+    object ForgotPassword : Screen("forgot_password")
+    object MainMenu : Screen("main_menu")
+    object CreateGame : Screen("create_game")
+    object JoinGame : Screen("join_game")
+    object HowToPlay : Screen("how_to_play")
+    object History : Screen("history")
+    object Game : Screen("game/{code}") {
+        fun createRoute(code: String) = "game/$code"
     }
 }
 
-/**
- * B1 + B5: solo navega. La lógica de auth vive en AuthViewModel, la del lobby en LobbyViewModel
- * y la de la partida en GameViewModel; aquí únicamente se conectan con las pantallas.
- *
- * Los ViewModels se crean aquí (alcance de la Activity) para que Sala de espera, Tablero y
- * Resultado compartan el MISMO GameViewModel y por tanto la misma conexión a Firestore.
- */
 @Composable
-fun AppNavigation(
-    authViewModel: AuthViewModel = viewModel(),
-    lobbyViewModel: LobbyViewModel = viewModel(),
-    gameViewModel: GameViewModel = viewModel(),
-    historialViewModel: HistorialViewModel = viewModel()
-) {
-    val contexto = LocalContext.current
+fun AppNavigation() {
     val navController = rememberNavController()
+    val authViewModel: AuthViewModel = viewModel()
+    val lobbyViewModel: LobbyViewModel = viewModel()
+    val context = LocalContext.current
 
-    val auth by authViewModel.uiState.collectAsState()
-    val lobby by lobbyViewModel.uiState.collectAsState()
-    val partida by gameViewModel.uiState.collectAsState()
-    val historial by historialViewModel.uiState.collectAsState()
+    val authState by authViewModel.uiState.collectAsState()
+    val lobbyState by lobbyViewModel.uiState.collectAsState()
 
-    // Si ya hay sesión guardada se abre directo el menú.
-    val inicio = remember { if (authViewModel.haySesion()) Rutas.MENU else Rutas.BIENVENIDA }
+    LaunchedEffect(authState.mensaje) {
+        authState.mensaje?.let { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+            authViewModel.mensajeMostrado()
+        }
+    }
 
-    // --- Mensajes de los ViewModels (Toast una sola vez) ---
-    MensajeEffect(auth.mensaje) { authViewModel.mensajeMostrado() }
-    MensajeEffect(lobby.error) { lobbyViewModel.clearError() }
-    MensajeEffect(partida.error) { gameViewModel.clearError() }
-
-    // --- Auth exitoso -> menú (sin dejar pantallas de login en la pila) ---
-    LaunchedEffect(auth.autenticado) {
-        if (auth.autenticado) {
-            navController.irLimpiando(Rutas.MENU)
+    LaunchedEffect(authState.autenticado) {
+        if (authState.autenticado) {
             authViewModel.navegacionManejada()
+            navController.navigate(Screen.MainMenu.route) {
+                popUpTo(0) { inclusive = true }
+            }
         }
     }
 
-    // --- Sala creada / unida -> sala de espera ---
-    LaunchedEffect(lobby.roomCode) {
-        val codigo = lobby.roomCode ?: return@LaunchedEffect
-        navController.navigate(Rutas.sala(codigo)) {
-            popUpTo(Rutas.MENU) // al volver atrás se regresa al menú, no a Crear/Unirse
-        }
-        lobbyViewModel.roomHandled()
-    }
+    val startDestination = if (authViewModel.haySesion()) Screen.MainMenu.route else Screen.Welcome.route
 
     NavHost(
         navController = navController,
-        startDestination = inicio
+        startDestination = startDestination
     ) {
-        // ---------- Auth ----------
-        composable(Rutas.BIENVENIDA) {
+        composable(Screen.Welcome.route) {
             BienvenidaScreen(
-                onIniciarSesion = { navController.navigate(Rutas.INICIAR_SESION) },
-                onCrearCuenta = { navController.navigate(Rutas.REGISTRO) },
-                onGoogle = {
-                    // B2 (opcional): ver carpeta OPCIONAL_B2_Google.
-                    Toast.makeText(contexto, "Ingreso con Google no disponible todavía.", Toast.LENGTH_SHORT).show()
-                }
+                onIniciarSesion = { navController.navigate(Screen.Login.route) },
+                onCrearCuenta = { navController.navigate(Screen.Register.route) },
+                onGoogle = {}
             )
         }
-        composable(Rutas.INICIAR_SESION) {
+
+        composable(Screen.Login.route) {
             IniciarSesionScreen(
-                onIniciarSesion = { correo, contrasena -> authViewModel.iniciarSesion(correo, contrasena) },
-                onIrRegistro = { navController.navigate(Rutas.REGISTRO) },
-                onVolver = { navController.popBackStack() },
-                onRecuperarContrasena = { navController.navigate(Rutas.RECUPERAR_CONTRASENA) }
-            )
-        }
-        composable(Rutas.REGISTRO) {
-            RegistroScreen(
-                onRegistrar = { nombre, correo, contrasena -> authViewModel.registrar(nombre, correo, contrasena) },
-                onIrIniciarSesion = { navController.navigate(Rutas.INICIAR_SESION) },
+                onIniciarSesion = { correo, pass -> authViewModel.iniciarSesion(correo, pass) },
+                onRecuperarContrasena = { navController.navigate(Screen.ForgotPassword.route) },
+                onIrRegistro = { navController.navigate(Screen.Register.route) },
                 onVolver = { navController.popBackStack() }
             )
         }
-        composable(Rutas.RECUPERAR_CONTRASENA) {
+
+        composable(Screen.Register.route) {
+            RegistroScreen(
+                onRegistrar = { nombre, correo, pass -> authViewModel.registrar(nombre, correo, pass) },
+                onIrIniciarSesion = { navController.navigate(Screen.Login.route) },
+                onVolver = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.ForgotPassword.route) {
             RecuperarContrasenaScreen(
                 onRecuperar = { correo -> authViewModel.recuperarContrasena(correo) },
                 onVolver = { navController.popBackStack() }
             )
         }
 
-        // ---------- Menú y lobby ----------
-        composable(Rutas.MENU) {
+        composable(Screen.MainMenu.route) {
             MenuPrincipalScreen(
-                onJugar = { navController.navigate(Rutas.CREAR) },
-                onCrearSala = { navController.navigate(Rutas.CREAR) },
-                onUnirseSala = { navController.navigate(Rutas.UNIRSE) },
-                onComoJugar = { navController.navigate(Rutas.COMOJUGAR) },
-                onHistorial = { navController.navigate(Rutas.HISTORIAL) },
+                onJugar = { navController.navigate(Screen.CreateGame.route) },
+                onCrearSala = {
+                    lobbyViewModel.resetState()
+                    navController.navigate(Screen.CreateGame.route)
+                },
+                onUnirseSala = {
+                    lobbyViewModel.resetState()
+                    navController.navigate(Screen.JoinGame.route)
+                },
+                onComoJugar = { navController.navigate(Screen.HowToPlay.route) },
+                onHistorial = { navController.navigate(Screen.History.route) },
                 onCerrarSesion = {
                     authViewModel.cerrarSesion()
-                    navController.irLimpiando(Rutas.BIENVENIDA)
+                    navController.navigate(Screen.Welcome.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
-        composable(Rutas.COMOJUGAR) {
-            ComoJugarScreen(onVolver = { navController.popBackStack() })
-        }
-        composable(Rutas.CREAR) {
+
+        composable(Screen.CreateGame.route) {
             CrearPartidaScreen(
                 onVolver = { navController.popBackStack() },
-                onCrearPartida = { lobbyViewModel.createRoom() },
-                cargando = lobby.loading
+                onCrearPartida = {
+                    lobbyViewModel.createRoom { code ->
+                        navController.navigate(Screen.Game.createRoute(code)) {
+                            popUpTo(Screen.MainMenu.route)
+                        }
+                    }
+                },
+                cargando = lobbyState.isLoading
             )
         }
-        composable(Rutas.UNIRSE) {
+
+        composable(Screen.JoinGame.route) {
             UnirPartidaScreen(
                 onVolver = { navController.popBackStack() },
-                onUnirse = { codigo -> lobbyViewModel.join(codigo) },
-                cargando = lobby.loading
+                onUnirse = { code ->
+                    lobbyViewModel.joinRoom(code) { ok ->
+                        if (ok) {
+                            navController.navigate(Screen.Game.createRoute(code)) {
+                                popUpTo(Screen.MainMenu.route)
+                            }
+                        }
+                    }
+                },
+                cargando = lobbyState.isLoading
             )
         }
-        composable(Rutas.HISTORIAL) {
-            LaunchedEffect(Unit) { historialViewModel.cargar(authViewModel.usuarioId()) }
+
+        composable(Screen.HowToPlay.route) {
+            ComoJugarScreen(onVolver = { navController.popBackStack() })
+        }
+
+        composable(Screen.History.route) {
+            val historialViewModel: HistorialViewModel = viewModel()
+            val historialState by historialViewModel.uiState.collectAsState()
+            val uid = authViewModel.usuarioId()
+
+            LaunchedEffect(uid) {
+                historialViewModel.cargar(uid)
+            }
+
             HistorialScreen(
-                partidas = historial.partidas,
-                cargando = historial.cargando,
+                partidas = historialState.partidas,
+                cargando = historialState.cargando,
                 onVolver = { navController.popBackStack() }
             )
         }
 
-        // ---------- Partida ----------
-        composable(route = Rutas.SALA_PATRON, arguments = argumentoCodigo) { entrada ->
-            val codigo = entrada.arguments?.getString(Rutas.ARG_CODIGO).orEmpty()
-            val miId = authViewModel.usuarioId()
-            LaunchedEffect(codigo, miId) { gameViewModel.connect(codigo, miId) }
+        composable(
+            route = Screen.Game.route,
+            arguments = listOf(navArgument("code") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val code = backStackEntry.arguments?.getString("code").orEmpty()
+            val gameViewModel: GameViewModel = viewModel()
+            val gameUiState by gameViewModel.uiState.collectAsState()
+            val myId = authViewModel.usuarioId()
 
-            // Ignora el estado de una sala anterior mientras llega el de esta.
-            val estado = partida.state?.takeIf { it.code == codigo }
-
-            LaunchedEffect(estado?.phase) {
-                if (estado?.phase == GamePhase.IN_PROGRESS) {
-                    navController.navigate(Rutas.juego(codigo)) {
-                        popUpTo(Rutas.SALA_PATRON) { inclusive = true }
-                    }
-                }
+            LaunchedEffect(code, myId) {
+                gameViewModel.connect(code, myId)
             }
-            SalaEsperaScreen(
-                codigo = codigo,
-                estado = estado,
-                miId = miId,
+
+            PartidaScreen(
+                ui = gameUiState,
                 onIniciar = { gameViewModel.startGame() },
-                onSalir = {
-                    gameViewModel.abandon()
-                    navController.popBackStack(Rutas.MENU, false)
-                }
-            )
-        }
-
-        composable(route = Rutas.JUEGO_PATRON, arguments = argumentoCodigo) { entrada ->
-            val codigo = entrada.arguments?.getString(Rutas.ARG_CODIGO).orEmpty()
-            val miId = authViewModel.usuarioId()
-            LaunchedEffect(codigo, miId) { gameViewModel.connect(codigo, miId) }
-
-            val estado = partida.state?.takeIf { it.code == codigo }
-
-            LaunchedEffect(estado?.phase) {
-                if (estado?.phase == GamePhase.FINISHED) {
-                    navController.navigate(Rutas.resultado(codigo)) {
-                        popUpTo(Rutas.JUEGO_PATRON) { inclusive = true }
-                    }
-                }
-            }
-            TableroScreen(
-                ui = if (estado == null) partida.copy(state = null) else partida,
                 onSeleccionarFicha = { gameViewModel.selectTile(it) },
                 onSeleccionarPoder = { gameViewModel.selectPower(it) },
-                onSeleccionarObjetivo = { id, ficha -> gameViewModel.selectSwapTarget(id, ficha) },
+                onSeleccionarObjetivo = { id, tile -> gameViewModel.selectSwapTarget(id, tile) },
                 onConfirmarIntercambio = { gameViewModel.confirmSwap() },
-                onColocar = { lado -> gameViewModel.placeTile(lado) },
+                onColocar = { gameViewModel.placeTile(it) },
                 onRobar = { gameViewModel.drawFromPile() },
-                onAbandonar = {
-                    gameViewModel.abandon()
-                    navController.popBackStack(Rutas.MENU, false)
-                },
-                onSalir = { navController.popBackStack(Rutas.MENU, false) }
-            )
-        }
-
-        composable(route = Rutas.RESULTADO_PATRON, arguments = argumentoCodigo) { entrada ->
-            val codigo = entrada.arguments?.getString(Rutas.ARG_CODIGO).orEmpty()
-            val miId = authViewModel.usuarioId()
-            LaunchedEffect(codigo, miId) { gameViewModel.connect(codigo, miId) }
-
-            val estado = partida.state?.takeIf { it.code == codigo }
-
-            // Si el anfitrión reinicia, todos vuelven a la sala o directo al juego.
-            LaunchedEffect(estado?.phase) {
-                when (estado?.phase) {
-                    GamePhase.IN_PROGRESS -> navController.navigate(Rutas.juego(codigo)) {
-                        popUpTo(Rutas.RESULTADO_PATRON) { inclusive = true }
-                    }
-                    GamePhase.WAITING -> navController.navigate(Rutas.sala(codigo)) {
-                        popUpTo(Rutas.RESULTADO_PATRON) { inclusive = true }
-                    }
-                    else -> Unit
-                }
-            }
-            ResultadoScreen(
-                estado = estado,
-                miId = miId,
-                onJugarDeNuevo = { gameViewModel.restart() },
+                onAbandonar = { gameViewModel.abandon() },
+                onReiniciar = { gameViewModel.restart() },
                 onSalir = {
-                    gameViewModel.abandon()
-                    navController.popBackStack(Rutas.MENU, false)
+                    navController.navigate(Screen.MainMenu.route) {
+                        popUpTo(Screen.MainMenu.route) { inclusive = true }
+                    }
                 }
             )
         }

@@ -1,86 +1,88 @@
-package com.example.domino.ui.screens
+package com.example.domino.ui.viewmodel
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import com.example.domino.ui.components.DominoButton
-import com.example.domino.ui.viewmodel.LobbyViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.domino.data.auth.currentPlayerOrNull
+import com.example.domino.data.game.FirestoreGameRepository
+import com.example.domino.data.game.GameRepository
+import com.example.domino.domain.model.Player
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-@Composable
-fun JoinGameScreen(
-    viewModel: LobbyViewModel,
-    onJoined: (String) -> Unit,
-    onBack: () -> Unit
-) {
-    var codeInput by remember { mutableStateOf("") }
-    val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
+data class LobbyUiState(
+    val isLoading: Boolean = false,
+    val roomCode: String? = null,
+    val error: String? = null
+)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Join Game Room",
-            style = MaterialTheme.typography.headlineMedium
-        )
+class LobbyViewModel(
+    private val repository: GameRepository = FirestoreGameRepository()
+) : ViewModel() {
 
-        Spacer(modifier = Modifier.height(24.dp))
+    private val _uiState = MutableStateFlow(LobbyUiState())
+    val uiState: StateFlow<LobbyUiState> = _uiState.asStateFlow()
 
-        OutlinedTextField(
-            value = codeInput,
-            onValueChange = { codeInput = it.uppercase() },
-            label = { Text("Room Code") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+    private val _roomCode = MutableStateFlow<String?>(null)
+    val roomCode: StateFlow<String?> = _roomCode.asStateFlow()
 
-        Spacer(modifier = Modifier.height(24.dp))
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-        if (isLoading) {
-            CircularProgressIndicator()
-        } else {
-            DominoButton(
-                text = "Join Room",
-                enabled = codeInput.isNotBlank(),
-                onClick = {
-                    viewModel.joinRoom(codeInput) { success ->
-                        if (success) onJoined(codeInput)
-                    }
-                }
-            )
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    fun createRoom(onCreated: ((String) -> Unit)? = null) {
+        val player = currentPlayerOrNull() ?: Player(id = "anon", name = "Jugador")
+        viewModelScope.launch {
+            _isLoading.value = true
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            _error.value = null
+
+            val result = repository.createRoom(player)
+            result.onSuccess { code ->
+                _roomCode.value = code
+                _isLoading.value = false
+                _uiState.update { it.copy(isLoading = false, roomCode = code) }
+                onCreated?.invoke(code)
+            }.onFailure { ex ->
+                val msg = ex.localizedMessage ?: "No se pudo crear la sala"
+                _error.value = msg
+                _isLoading.value = false
+                _uiState.update { it.copy(isLoading = false, error = msg) }
+            }
         }
+    }
 
-        error?.let { err ->
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(text = err, color = MaterialTheme.colorScheme.error)
+    fun joinRoom(code: String, onResult: ((Boolean) -> Unit)? = null) {
+        val player = currentPlayerOrNull() ?: Player(id = "anon", name = "Jugador")
+        viewModelScope.launch {
+            _isLoading.value = true
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            _error.value = null
+
+            val result = repository.joinRoom(code.trim().uppercase(), player)
+            result.onSuccess {
+                _roomCode.value = code
+                _isLoading.value = false
+                _uiState.update { it.copy(isLoading = false, roomCode = code) }
+                onResult?.invoke(true)
+            }.onFailure { ex ->
+                val msg = ex.localizedMessage ?: "No se pudo unirse a la sala"
+                _error.value = msg
+                _isLoading.value = false
+                _uiState.update { it.copy(isLoading = false, error = msg) }
+                onResult?.invoke(false)
+            }
         }
+    }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        DominoButton(
-            text = "Back",
-            onClick = onBack
-        )
+    fun resetState() {
+        _roomCode.value = null
+        _isLoading.value = false
+        _error.value = null
+        _uiState.value = LobbyUiState()
     }
 }
