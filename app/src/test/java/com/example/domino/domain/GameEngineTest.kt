@@ -58,9 +58,7 @@ class GameEngineTest {
 
     private fun startedGame(playerCount: Int = 2, seed: Int = 1): GameState {
         var state = engine.createGame("ROOM", Player(id = "p0", name = "P0"))
-        for (i in 1 until playerCount) state = ok(engine.addPlayer(state,
-            Player(id = "p$i", name = "P$i")
-        ))
+        for (i in 1 until playerCount) state = ok(engine.addPlayer(state, Player(id = "p$i", name = "P$i")))
         return ok(engine.start(state, Random(seed)))
     }
 
@@ -109,12 +107,7 @@ class GameEngineTest {
     @Test
     fun firstMove_onEmptyBoardIsAccepted() {
         val state = game(
-            players = listOf(player("a", listOf(Tile(1, 2), Tile(3, 3))), player("b", listOf(
-                Tile(
-                    4,
-                    5
-                )
-            )))
+            players = listOf(player("a", listOf(Tile(1, 2), Tile(3, 3))), player("b", listOf(Tile(4, 5))))
         )
 
         val next = ok(engine.applyMove(state, Move("a", Tile(1, 2), Side.RIGHT)))
@@ -128,12 +121,7 @@ class GameEngineTest {
     @Test
     fun move_thatDoesNotMatchIsRejected() {
         val state = game(
-            players = listOf(player("a", listOf(Tile(1, 2), Tile(6, 6))), player("b", listOf(
-                Tile(
-                    0,
-                    0
-                )
-            ))),
+            players = listOf(player("a", listOf(Tile(1, 2), Tile(6, 6))), player("b", listOf(Tile(0, 0)))),
             board = listOf(Tile(3, 5))
         )
         rejected(engine.applyMove(state, Move("a", Tile(1, 2), Side.RIGHT)))
@@ -150,12 +138,7 @@ class GameEngineTest {
 
     @Test
     fun move_isRejectedWhenThePlayerDoesNotHoldTheTile() {
-        val state = game(players = listOf(player("a", listOf(
-            Tile(
-                1,
-                2
-            )
-        )), player("b", listOf(Tile(2, 3)))))
+        val state = game(players = listOf(player("a", listOf(Tile(1, 2))), player("b", listOf(Tile(2, 3)))))
         rejected(engine.applyMove(state, Move("a", Tile(5, 5), Side.RIGHT)))
     }
 
@@ -184,12 +167,7 @@ class GameEngineTest {
     @Test
     fun validMoves_listsOnlyMatchingTilesPlusAffordablePowers() {
         val state = game(
-            players = listOf(player("a", listOf(Tile(3, 4), Tile(6, 6))), player("b", listOf(
-                Tile(
-                    0,
-                    0
-                )
-            ))),
+            players = listOf(player("a", listOf(Tile(3, 4), Tile(6, 6))), player("b", listOf(Tile(0, 0)))),
             board = listOf(Tile(2, 3))
         )
 
@@ -230,12 +208,7 @@ class GameEngineTest {
     @Test
     fun wildcard_allowsAnyTileAndConsumesAUse() {
         val state = game(
-            players = listOf(player("a", listOf(Tile(5, 5), Tile(0, 0))), player("b", listOf(
-                Tile(
-                    4,
-                    4
-                )
-            ))),
+            players = listOf(player("a", listOf(Tile(5, 5), Tile(0, 0))), player("b", listOf(Tile(4, 4)))),
             board = listOf(Tile(2, 3))
         )
 
@@ -250,9 +223,7 @@ class GameEngineTest {
     @Test
     fun power_withNoUsesLeftIsRejected() {
         val exhausted = player("a", listOf(Tile(5, 5), Tile(0, 0))).copy(powerUses = mapOf("WILDCARD" to 0))
-        val state = game(players = listOf(exhausted, player("b", listOf(Tile(4, 4)))), board = listOf(
-            Tile(2, 3)
-        ))
+        val state = game(players = listOf(exhausted, player("b", listOf(Tile(4, 4)))), board = listOf(Tile(2, 3)))
 
         rejected(engine.applyMove(state, Move("a", Tile(5, 5), Side.RIGHT, PowerType.WILDCARD)))
     }
@@ -260,12 +231,7 @@ class GameEngineTest {
     @Test
     fun skip_makesTheNextPlayerLoseTheirTurn() {
         val state = game(
-            players = listOf(player("a", listOf(Tile(3, 4), Tile(0, 0))), player("b", listOf(
-                Tile(
-                    4,
-                    4
-                )
-            ))),
+            players = listOf(player("a", listOf(Tile(3, 4), Tile(0, 0))), player("b", listOf(Tile(4, 4)))),
             board = listOf(Tile(2, 3))
         )
 
@@ -306,13 +272,7 @@ class GameEngineTest {
         val next = ok(
             engine.applyMove(
                 state,
-                Move(
-                    "a",
-                    Tile(1, 1),
-                    power = PowerType.SWAP,
-                    targetId = "b",
-                    targetTile = Tile(4, 4)
-                )
+                Move("a", Tile(1, 1), power = PowerType.SWAP, targetId = "b", targetTile = Tile(4, 4))
             )
         )
 
@@ -330,12 +290,8 @@ class GameEngineTest {
             players = listOf(player("a", listOf(Tile(1, 1))), player("b", listOf(Tile(3, 3)))),
             board = listOf(Tile(0, 0))
         )
-        rejected(engine.applyMove(state,
-            Move("a", Tile(1, 1), power = PowerType.SWAP, targetId = "a", targetTile = Tile(1, 1))
-        ))
-        rejected(engine.applyMove(state,
-            Move("a", Tile(1, 1), power = PowerType.SWAP, targetId = "b", targetTile = Tile(6, 6))
-        ))
+        rejected(engine.applyMove(state, Move("a", Tile(1, 1), power = PowerType.SWAP, targetId = "a", targetTile = Tile(1, 1))))
+        rejected(engine.applyMove(state, Move("a", Tile(1, 1), power = PowerType.SWAP, targetId = "b", targetTile = Tile(6, 6))))
         rejected(engine.applyMove(state, Move("a", Tile(1, 1), power = PowerType.SWAP)))
     }
 
@@ -455,12 +411,7 @@ class GameEngineTest {
 
     @Test
     fun abandon_inProgressWithTwoPlayersEndsTheGameForTheOther() {
-        val state = game(players = listOf(player("a", listOf(
-            Tile(
-                1,
-                1
-            )
-        )), player("b", listOf(Tile(2, 2)))))
+        val state = game(players = listOf(player("a", listOf(Tile(1, 1))), player("b", listOf(Tile(2, 2)))))
 
         val end = engine.abandon(state, "a")
 
@@ -525,12 +476,7 @@ class GameEngineTest {
 
     @Test
     fun doubleScore_doublesThePointsWhileActive() {
-        val state = game(players = listOf(player("a", listOf(
-            Tile(
-                3,
-                4
-            )
-        )), player("b", listOf(Tile(1, 1)))))
+        val state = game(players = listOf(player("a", listOf(Tile(3, 4))), player("b", listOf(Tile(1, 1)))))
 
         assertEquals(7, engine.calculatePoints(state, Tile(3, 4)))
         val active = state.copy(activeEvent = ActiveEvent(EventType.DOUBLE_SCORE, 2))
@@ -559,8 +505,7 @@ class GameEngineTest {
     fun tileStorm_keepsHandSizesAndAllTheTiles() {
         val state = startedGame(playerCount = 3)
 
-        // applyRandomEvent solo recibe el estado y el Random
-        val next = engine.applyRandomEvent(state, Random(5))
+        val next = engine.applyEvent(state, EventType.TILE_STORM, Random(5))
 
         assertEquals(state.players.map { it.hand.size }, next.players.map { it.hand.size })
         assertEquals(state.drawPile.size, next.drawPile.size)
@@ -576,8 +521,7 @@ class GameEngineTest {
             pile = listOf(Tile(6, 6))
         )
 
-        // Se le pasa una semilla de Random que fuerce/genere el evento
-        val next = engine.applyRandomEvent(state, Random(0))
+        val next = engine.applyEvent(state, EventType.FORCED_DRAW)
 
         assertEquals(2, next.players[0].hand.size)
         assertTrue(next.drawPile.isEmpty())
@@ -585,34 +529,18 @@ class GameEngineTest {
 
     @Test
     fun turnReversal_flipsTheDirection() {
-        val state = game(
-            players = listOf(
-                player("a", listOf(Tile(1, 1))),
-                player("b", listOf(Tile(2, 2)))
-            )
-        )
-        // Se le pasa el objeto Random necesario
-        assertEquals(-1, engine.applyRandomEvent(state, Random(0)).direction)
+        val state = game(players = listOf(player("a", listOf(Tile(1, 1))), player("b", listOf(Tile(2, 2)))))
+        assertEquals(-1, engine.applyEvent(state, EventType.TURN_REVERSAL).direction)
     }
 
     @Test
     fun randomEvent_neverTriggersOutsideAGameOrWhileAnotherIsActive() {
-        val waiting = game(
-            players = listOf(
-                player("a", listOf(Tile(1, 1))),
-                player("b", listOf(Tile(2, 2)))
-            )
-        ).copy(phase = GamePhase.WAITING)
-
+        val waiting = game(players = listOf(player("a", listOf(Tile(1, 1))), player("b", listOf(Tile(2, 2)))))
+            .copy(phase = GamePhase.WAITING)
         assertEquals(waiting, engine.applyRandomEvent(waiting, Random(1)))
 
-        val busy = game(
-            players = listOf(
-                player("a", listOf(Tile(1, 1))),
-                player("b", listOf(Tile(2, 2)))
-            )
-        ).copy(activeEvent = ActiveEvent(EventType.DOUBLE_SCORE, 2))
-
+        val busy = game(players = listOf(player("a", listOf(Tile(1, 1))), player("b", listOf(Tile(2, 2)))))
+            .copy(activeEvent = ActiveEvent(EventType.DOUBLE_SCORE, 2))
         repeat(50) { assertEquals(busy, engine.applyRandomEvent(busy, Random(it))) }
     }
 
