@@ -11,11 +11,6 @@ import kotlin.random.Random
  * Until then the app compiles, but the real game does not work.
  */
 class GameEngineImpl : GameEngine {
-    companion object {
-        const val MIN_PLAYERS = 2
-        const val MAX_PLAYERS = 4
-    }
-
     override fun createGame(code: String, host: Player): GameState = TODO("A1")
     override fun addPlayer(state: GameState, player: Player): MoveResult = TODO("A1")
     override fun start(state: GameState, random: Random): MoveResult = TODO("A1")
